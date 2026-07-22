@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Newton's Divided Difference Interpolation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0A0D1C;
+    --bg-deep: #060812;
+    --glass: rgba(255,255,255,0.045);
+    --glass-strong: rgba(255,255,255,0.07);
+    --border: rgba(255,255,255,0.1);
+    --border-strong: rgba(139,92,246,0.4);
+    --purple: #8B5CF6;
+    --purple-dim: #5B4A9E;
+    --cyan: #22D3EE;
+    --amber: #FBBF24;
+    --text: #E7E9F5;
+    --text-muted: #8B92B0;
+    --text-dim: #5D6480;
+    --radius: 14px;
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -5%, rgba(139,92,246,0.16), transparent),
+      radial-gradient(ellipse 700px 500px at 100% 10%, rgba(34,211,238,0.10), transparent),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  .wrap { max-width: 880px; margin: 0 auto; padding: 64px 24px 96px; }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    color: var(--cyan);
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .eyebrow::before {
+    content: '';
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 10px var(--cyan);
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(28px, 4.5vw, 42px);
+    margin: 0 0 12px;
+    letter-spacing: -0.01em;
+  }
+
+  .subtitle {
+    color: var(--text-muted);
+    font-size: 16px;
+    max-width: 560px;
+    margin: 0 0 40px;
+  }
+
+  .stars-panel {
+    position: relative;
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 8px;
+    margin-bottom: 40px;
+    overflow: hidden;
+  }
+  .stars-panel::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(circle at 20% 30%, rgba(139,92,246,0.08), transparent 60%);
+    pointer-events: none;
+  }
+  #plot { width: 100%; height: 320px; display: block; border-radius: 14px; }
+
+  .glass-card {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    margin-bottom: 28px;
+  }
+
+  .card-label {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--purple);
+    margin: 0 0 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .points-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+  .point-row { display: grid; grid-template-columns: 24px 1fr 1fr 32px; gap: 10px; align-items: center; }
+  .point-index { font-family: var(--font-mono); color: var(--text-dim); font-size: 13px; }
+
+  input[type="number"] {
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    padding: 9px 12px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input[type="number"]:focus { border-color: var(--purple); }
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+  .remove-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 8px;
+    width: 32px; height: 32px;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    transition: all 0.15s;
+  }
+  .remove-btn:hover { border-color: #E24B4A; color: #E24B4A; }
+
+  .row-actions { display: flex; gap: 10px; margin-top: 4px; }
+
+  button.btn {
+    font-family: var(--font-body);
+    font-weight: 500;
+    font-size: 14px;
+    border-radius: 9px;
+    padding: 10px 18px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    transition: all 0.15s;
+  }
+  button.btn:hover { border-color: var(--purple-dim); background: var(--glass-strong); }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--purple), #6D5AC9);
+    border: none;
+    color: white;
+    font-weight: 500;
+  }
+  .btn-primary:hover { filter: brightness(1.1); }
+
+  .target-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding-top: 18px;
+    margin-top: 4px;
+    border-top: 1px solid var(--border);
+  }
+  .target-row label {
+    font-size: 14px; color: var(--text-muted); white-space: nowrap;
+  }
+  .target-row input { max-width: 140px; }
+
+  .result-card {
+    background: linear-gradient(135deg, rgba(139,92,246,0.1), rgba(34,211,238,0.05));
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    padding: 28px;
+    margin-bottom: 28px;
+    display: none;
+  }
+  .result-card.visible { display: block; }
+  .result-value-label { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+  .result-value { font-family: var(--font-display); font-size: 36px; font-weight: 700; color: var(--cyan); margin-bottom: 18px; }
+  .poly-label { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+  .poly-expr { font-family: var(--font-mono); font-size: 13px; color: var(--text); word-break: break-all; line-height: 1.7; }
+
+  .table-wrap { overflow-x: auto; }
+  table.dd-table { border-collapse: collapse; width: 100%; font-family: var(--font-mono); font-size: 13px; }
+  table.dd-table th, table.dd-table td {
+    padding: 10px 14px; text-align: right; white-space: nowrap;
+    border-bottom: 1px solid var(--border);
+  }
+  table.dd-table th { color: var(--text-dim); font-weight: 500; text-transform: uppercase; font-size: 11px; letter-spacing: 0.04em; }
+  table.dd-table td.x-col, table.dd-table th.x-col { text-align: left; color: var(--cyan); }
+  table.dd-table td.order-col { color: var(--amber); }
+
+  footer {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-top: 48px;
+    font-family: var(--font-mono);
+  }
+
+  @media (max-width: 560px) {
+    .point-row { grid-template-columns: 20px 1fr 1fr 28px; }
+    .result-value { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="eyebrow">Numerical methods · unequal intervals</div>
+  <h1>Newton's divided difference interpolation</h1>
+  <p class="subtitle">Enter any scattered data points — spaced however you like — and the app fits a polynomial curve through every one of them, then evaluates it at any point you choose.</p>
+
+  <div class="stars-panel">
+    <canvas id="plot"></canvas>
+  </div>
+
+  <div class="glass-card">
+    <div class="card-label">
+      <span>Data points</span>
+      <span id="pointCount" style="color: var(--text-dim); font-weight: 400;">4 points</span>
+    </div>
+    <div class="points-list" id="pointsList"></div>
+    <div class="row-actions">
+      <button class="btn" id="addPoint">+ Add point</button>
+    </div>
+
+    <div class="target-row">
+      <label for="targetX">Interpolate at x =</label>
+      <input type="number" id="targetX" value="6" step="any">
+      <button class="btn btn-primary" id="runBtn" style="margin-left: auto;">Interpolate</button>
+    </div>
+  </div>
+
+  <div class="result-card" id="resultCard">
+    <div class="result-value-label">P(x) at x = <span id="resultX"></span></div>
+    <div class="result-value" id="resultValue"></div>
+    <div class="poly-label">Newton's polynomial</div>
+    <div class="poly-expr" id="polyExpr"></div>
+  </div>
+
+  <div class="glass-card" id="tableCard" style="display:none;">
+    <div class="card-label"><span>Divided difference table</span></div>
+    <div class="table-wrap" id="tableWrap"></div>
+  </div>
+
+  <footer>built for the numerical methods presentation &middot; runs entirely in the browser</footer>
+</div>
+
+<script>
+let points = [
+  { x: 1, y: 0 },
+  { x: 2, y: 1 },
+  { x: 4, y: 2 },
+  { x: 8, y: 3 }
+];
+
+const pointsList = document.getElementById('pointsList');
+const pointCount = document.getElementById('pointCount');
+const canvas = document.getElementById('plot');
+const ctx = canvas.getContext('2d');
+
+function renderPointsList() {
+  pointsList.innerHTML = '';
+  points.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.className = 'point-row';
+    row.innerHTML = `
+      <span class="point-index">${i}</span>
+      <input type="number" step="any" value="${p.x}" data-idx="${i}" data-field="x" placeholder="x">
+      <input type="number" step="any" value="${p.y}" data-idx="${i}" data-field="y" placeholder="y">
+      <button class="remove-btn" data-idx="${i}" title="Remove point">&times;</button>
+    `;
+    pointsList.appendChild(row);
+  });
+  pointCount.textContent = points.length + (points.length === 1 ? ' point' : ' points');
+
+  pointsList.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const idx = parseInt(e.target.dataset.idx);
+      const field = e.target.dataset.field;
+      const val = parseFloat(e.target.value);
+      if (!isNaN(val)) points[idx][field] = val;
+      drawPlot();
+    });
+  });
+  pointsList.querySelectorAll('.remove-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const idx = parseInt(e.target.dataset.idx);
+      if (points.length > 2) {
+        points.splice(idx, 1);
+        renderPointsList();
+        drawPlot();
+      }
+    });
+  });
+}
+
+document.getElementById('addPoint').addEventListener('click', () => {
+  const lastX = points.length ? points[points.length - 1].x : 0;
+  points.push({ x: lastX + 1, y: 0 });
+  renderPointsList();
+  drawPlot();
+});
+
+function computeDividedDifferenceTable(xs, ys) {
+  const n = xs.length;
+  const table = Array.from({ length: n }, () => new Array(n).fill(0));
+  for (let i = 0; i < n; i++) table[i][0] = ys[i];
+  for (let j = 1; j < n; j++) {
+    for (let i = 0; i < n - j; i++) {
+      table[i][j] = (table[i + 1][j - 1] - table[i][j - 1]) / (xs[i + j] - xs[i]);
+    }
+  }
+  return table;
+}
+
+function newtonInterpolate(xs, ys, target) {
+  const n = xs.length;
+  const table = computeDividedDifferenceTable(xs, ys);
+  const coeffs = table[0].slice(0, n);
+  let result = coeffs[0];
+  let product = 1;
+  for (let k = 1; k < n; k++) {
+    product *= (target - xs[k - 1]);
+    result += coeffs[k] * product;
+  }
+  return { result, table, coeffs };
+}
+
+function evalPolyAt(xs, coeffs, t) {
+  let result = coeffs[0];
+  let product = 1;
+  for (let k = 1; k < coeffs.length; k++) {
+    product *= (t - xs[k - 1]);
+    result += coeffs[k] * product;
+  }
+  return result;
+}
+
+function drawPlot(highlightResult) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = 320 * dpr;
+  canvas.style.height = '320px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const W = rect.width, H = 320;
+  ctx.clearRect(0, 0, W, H);
+
+  const sorted = [...points].sort((a, b) => a.x - b.x);
+  const xs = sorted.map(p => p.x);
+  const ys = sorted.map(p => p.y);
+
+  const pad = 40;
+  const xMin = Math.min(...xs), xMax = Math.max(...xs);
+  const yMin = Math.min(...ys), yMax = Math.max(...ys);
+  const xRange = (xMax - xMin) || 1;
+  const yRange = (yMax - yMin) || 1;
+  const xPadAmt = xRange * 0.15;
+  const yPadAmt = yRange * 0.25;
+
+  function toPx(x, y) {
+    const px = pad + ((x - (xMin - xPadAmt)) / (xRange + 2 * xPadAmt)) * (W - 2 * pad);
+    const py = H - pad - ((y - (yMin - yPadAmt)) / (yRange + 2 * yPadAmt)) * (H - 2 * pad);
+    return [px, py];
+  }
+
+  // faint grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const gy = pad + (i / 4) * (H - 2 * pad);
+    ctx.beginPath(); ctx.moveTo(pad, gy); ctx.lineTo(W - pad, gy); ctx.stroke();
+  }
+
+  // interpolated curve, only if enough points
+  if (xs.length >= 2) {
+    const coeffs = computeDividedDifferenceTable(xs, ys)[0].slice(0, xs.length);
+    ctx.strokeStyle = 'rgba(34,211,238,0.75)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    const steps = 160;
+    for (let i = 0; i <= steps; i++) {
+      const x = (xMin - xPadAmt) + (i / steps) * (xRange + 2 * xPadAmt);
+      const y = evalPolyAt(xs, coeffs, x);
+      const [px, py] = toPx(x, y);
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+
+  // star points
+  sorted.forEach(p => {
+    const [px, py] = toPx(p.x, p.y);
+    ctx.fillStyle = '#8B5CF6';
+    ctx.shadowColor = '#8B5CF6';
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(px, py, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  });
+
+  // highlighted target result point
+  if (highlightResult) {
+    const [px, py] = toPx(highlightResult.x, highlightResult.y);
+    ctx.fillStyle = '#FBBF24';
+    ctx.shadowColor = '#FBBF24';
+    ctx.shadowBlur = 14;
+    ctx.beginPath();
+    ctx.arc(px, py, 5.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+}
+
+function buildPolyString(xs, coeffs) {
+  const terms = [coeffs[0].toFixed(4)];
+  for (let k = 1; k < coeffs.length; k++) {
+    let factors = '';
+    for (let i = 0; i < k; i++) factors += `(x - ${xs[i].toFixed(4)})`;
+    terms.push(`${coeffs[k].toFixed(4)}${factors}`);
+  }
+  return 'P(x) = ' + terms.join(' + ');
+}
+
+function renderTable(xs, table) {
+  const n = xs.length;
+  let html = '<table class="dd-table"><thead><tr><th class="x-col">x</th><th>f[x]</th>';
+  for (let o = 1; o < n; o++) html += `<th>order ${o}</th>`;
+  html += '</tr></thead><tbody>';
+  for (let i = 0; i < n; i++) {
+    html += `<tr><td class="x-col">${xs[i].toFixed(4)}</td><td>${table[i][0].toFixed(4)}</td>`;
+    for (let j = 1; j < n - i; j++) html += `<td class="order-col">${table[i][j].toFixed(4)}</td>`;
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  document.getElementById('tableWrap').innerHTML = html;
+  document.getElementById('tableCard').style.display = 'block';
+}
+
+document.getElementById('runBtn').addEventListener('click', () => {
+  const target = parseFloat(document.getElementById('targetX').value);
+  if (isNaN(target) || points.length < 2) return;
+
+  const sorted = [...points].sort((a, b) => a.x - b.x);
+  const xs = sorted.map(p => p.x);
+  const ys = sorted.map(p => p.y);
+
+  const { result, table, coeffs } = newtonInterpolate(xs, ys, target);
+
+  document.getElementById('resultX').textContent = target;
+  document.getElementById('resultValue').textContent = result.toFixed(6);
+  document.getElementById('polyExpr').textContent = buildPolyString(xs, coeffs);
+  document.getElementById('resultCard').classList.add('visible');
+
+  renderTable(xs, table);
+  drawPlot({ x: target, y: result });
+});
+
+window.addEventListener('resize', () => drawPlot());
+
+renderPointsList();
+drawPlot();
+</script>
+</body>
+</html>
